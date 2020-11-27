@@ -27,6 +27,11 @@
     "delay": 0
   },
   {
+    "functionality": "verboseLog",
+    "command": "stop",
+    "delay": 5
+  },
+  {
     "functionality": "monitorEvents",
     "command": "stop",
     "delay": 4

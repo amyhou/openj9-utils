@@ -1,6 +1,8 @@
 #include "server.hpp"
 
 #include <arpa/inet.h>
+#include <chrono>
+#include <fstream>
 #include <iostream>
 #include <jvmti.h>
 #include <netinet/in.h>
@@ -13,7 +15,6 @@
 #include <unistd.h>
 
 #include "agentOptions.hpp"
-#include <fstream>
 #include "perf.hpp"
 #include "utils.hpp"
 
@@ -146,14 +147,37 @@ void Server::handleServer()
                 handleClientCommand(command, "Client");
             }
         }
+
+        if (!delayedCommands.empty()) {
+            auto currentClockTime = std::chrono::system_clock::now();
+            std::time_t currentTime = std::chrono::system_clock::to_time_t(currentClockTime);
+
+            for (int i = 0; i < delayedCommands.size(); i++)
+            {
+                if (delayedCommands[i].delayTill <= currentTime) {
+                    agentCommand(delayedCommands[i].command);
+                    delayedCommands.erase(delayedCommands.begin()+i);
+                }
+            }
+            
+        }
     }
 }
 
 void Server::execCommand(json command)
 {
-    //if (!command["delay"].is_null())
-    //    sleep(command["delay"]);
-    if ((command["functionality"].get<std::string>()).compare("perf"))
+    if (command.find("delay") != command.end() && command["delay"].get<int>() > 0) {
+        auto currentClockTime = std::chrono::system_clock::now();
+        std::time_t currentTime = std::chrono::system_clock::to_time_t(currentClockTime);
+        std::time_t delay_til = currentTime + command["delay"].get<int>();
+
+        delayed_command_t delayedCommand;
+        delayedCommand.command = command;
+        delayedCommand.delayTill = delay_til;
+
+        delayedCommands.push_back(delayedCommand);
+    }
+    else if ((command["functionality"].get<std::string>()).compare("perf"))
     {
         agentCommand(command);
     }
