@@ -20,41 +20,24 @@
  * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0 OR GPL-2.0 WITH Classpath-exception-2.0 OR LicenseRef-GPL-2.0 WITH Assembly-exception
  *******************************************************************************/
 
-#ifndef VERBOSE_LOG_H_
-#define VERBOSE_LOG_H_
+package hellomodule;
 
-#include <ibmjvmti.h>
-#include <atomic>
+import java.util.logging.Logger;
 
-void verboseAlarmCallback(jvmtiEnv *jvmti_env, void *subscription_id, void *user_data);
-jvmtiError verboseSubscriberCallback(jvmtiEnv *jvmti_env, const char *record, jlong length, void *user_data);
+public class HelloWorld {
+	private static final Logger LOG = Logger.getLogger(HelloWorld.class.getName());
+	private int unusedInt = 6; /* This field should be removed by minimization */
 
-class VerboseLogSubscriber
-{
-    /*
-     * Data members
-     */
-protected:
-public:
-private:
-    jvmtiEnv *jvmti_env;
-    void *subscriptionID;
+	public static void main(String[] args) {
+		LOG.info("Hello World!");
 
-    /*
-     * Function members
-     */
-protected:
-public:
-    VerboseLogSubscriber(jvmtiEnv *_jvmti_env)
-    {
-        jvmti_env = _jvmti_env;
-    }
+		ReferencedClass refcls = new ReferencedClass();
+		refcls.aMethod();
+	}
 
-    void setVerboseGCLogSampleRate(int rate);
-    void Subscribe();
-    void Unsubscribe();
-
-private:
-
-};
-#endif
+	/* This method should be removed by minimization */
+	public int unusedMethod() {
+		int i = 1;
+		return i;
+	}
+}

@@ -1,3 +1,25 @@
+/*******************************************************************************
+ * Copyright (c) 2020, 2020 IBM Corp. and others
+ *
+ * This program and the accompanying materials are made available under
+ * the terms of the Eclipse Public License 2.0 which accompanies this
+ * distribution and is available at https://www.eclipse.org/legal/epl-2.0/
+ * or the Apache License, Version 2.0 which accompanies this distribution and
+ * is available at https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * This Source Code may also be made available under the following
+ * Secondary Licenses when the conditions for such availability set
+ * forth in the Eclipse Public License, v. 2.0 are satisfied: GNU
+ * General Public License, version 2 with the GNU Classpath
+ * Exception [1] and GNU General Public License, version 2 with the
+ * OpenJDK Assembly Exception [2].
+ *
+ * [1] https://www.gnu.org/software/classpath/license.html
+ * [2] http://openjdk.java.net/legal/assembly-exception.html
+ *
+ * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0 OR GPL-2.0 WITH Classpath-exception-2.0 OR LicenseRef-GPL-2.0 WITH Assembly-exception
+ *******************************************************************************/
+
 // TODO: object count
 #include <jvmti.h>
 #include <string.h>
@@ -24,7 +46,7 @@ std::atomic<bool> objAllocBackTraceEnabled {true};
 std::atomic<int> objAllocSampleCount {0};
 std::atomic<int> objAllocSampleRate {1};
 
-// Enables or disables the back trace option
+// Enables or disables the back trace option if sampleRate == 0
 void setObjAllocBackTrace(bool val){
     objAllocBackTraceEnabled = val;
     return;
@@ -41,11 +63,13 @@ void setObjAllocSampleRate(int rate) {
     return;
 }
 
-JNIEXPORT void JNICALL VMObjectAlloc(jvmtiEnv *jvmtiEnv, 
-                        JNIEnv* env, 
-                        jthread thread, 
-                        jobject object, 
-                        jclass object_klass, 
+/*** retrieves object type name, size (in bytes), allocation rate (bytes/microsec),
+ *      and backtrace for every nth sample (if enabled)                             ***/
+JNIEXPORT void JNICALL VMObjectAlloc(jvmtiEnv *jvmtiEnv,
+                        JNIEnv* env,
+                        jthread thread,
+                        jobject object,
+                        jclass object_klass,
                         jlong size) {
     jvmtiError err;
 
@@ -63,6 +87,7 @@ JNIEXPORT void JNICALL VMObjectAlloc(jvmtiEnv *jvmtiEnv,
 
 
     /*** get information about backtrace at object allocation sites if enabled***/
+    /*** retrieves method names and line numbers, and declaring class name and signature ***/
     if (objAllocBackTraceEnabled) {
         if (objAllocSampleCount % objAllocSampleRate == 0){
             char *methodName;
@@ -98,8 +123,8 @@ JNIEXPORT void JNICALL VMObjectAlloc(jvmtiEnv *jvmtiEnv,
                         }
                     }
                 }
-            } 
-                
+            }
+
             err = jvmtiEnv->Deallocate((unsigned char*)methodSignature);
             err = jvmtiEnv->Deallocate((unsigned char*)methodName);
             err = jvmtiEnv->Deallocate((unsigned char*)declaringClassName);
@@ -117,7 +142,7 @@ JNIEXPORT void JNICALL VMObjectAlloc(jvmtiEnv *jvmtiEnv,
     jObj["objAllocRate"] = rate;
 
     json j;
-    j["object"] = jObj; 
+    j["object"] = jObj;
     std::string s = j.dump(2, ' ', true);
     // printf("\n%s\n", s.c_str());
     sendToServer(s);
