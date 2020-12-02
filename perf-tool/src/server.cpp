@@ -22,7 +22,11 @@
 
 #include "server.hpp"
 
+#include <algorithm>
 #include <arpa/inet.h>
+#include <bits/types/time_t.h>
+#include <chrono>
+#include <fstream>
 #include <iostream>
 #include <jvmti.h>
 #include <netinet/in.h>
@@ -35,7 +39,6 @@
 #include <unistd.h>
 
 #include "agentOptions.hpp"
-#include <fstream>
 #include "perf.hpp"
 #include "utils.hpp"
 
@@ -62,40 +65,39 @@ Server::Server(int portNo, const string commandFileName, const string logFileNam
 void Server::handleServer()
 {
     socklen_t clilen;
-    char buffer[512];
     string message, command;
     struct sockaddr_in serv_addr, cli_addr;
     int n, newsocketFd;
     json jsonCommand;
 
-    // create a socket
-    // socket(int domain, int type, int protocol)
+    /* create a socket */
+    /* socket(int domain, int type, int protocol) */
     serverSocketFd = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocketFd < 0)
     {
         error("ERROR opening socket");
     }
 
-    // clear address structure
+    /* clear address structure */
     bzero((char *)&serv_addr, sizeof(serv_addr));
 
     /* setup the host_addr structure for use in bind call */
-    // server byte order
+    /* server byte order */
     serv_addr.sin_family = AF_INET;
 
-    // automatically be filled with current host's IP address
+    /* automatically be filled with current host's IP address */
     serv_addr.sin_addr.s_addr = INADDR_ANY;
 
-    // convert short integer value for port must be converted into network byte order
+    /* convert short integer value for port must be converted into network byte order */
     serv_addr.sin_port = htons(portNo);
 
-    // This bind() call will bind  the socket to the current IP address on port, portNo
+    /* This bind() call will bind  the socket to the current IP address on port, portNo */
     if (bind(serverSocketFd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
         error("ERROR on binding");
     }
 
-    // This listen() call tells the socket to listen to the incoming connections.
+    /* This listen() call tells the socket to listen to the incoming connections. */
     listen(serverSocketFd, ServerConstants::NUM_CLIENTS);
 
     pollFds[0].fd = serverSocketFd;
@@ -104,15 +106,13 @@ void Server::handleServer()
 
     printf("Server started.\n");
 
-    // Use polling to keep track of clients and keyboard input
+    /* Use polling to keep track of clients and keyboard input */
     while (1)
     {
         if (!keepPolling)
         {
             break;
         }
-
-        bzero(buffer, 512);
 
         if (poll(pollFds, activeNetworkClients + ServerConstants::BASE_POLLS, ServerConstants::POLL_INTERVALS) == -1)
         {
@@ -121,11 +121,12 @@ void Server::handleServer()
 
         if (activeNetworkClients < ServerConstants::NUM_CLIENTS && pollFds[0].revents && POLLIN)
         {
-            // The accept() call actually accepts an incoming connection
+            /* The accept() call actually accepts an incoming connection */
             clilen = sizeof(cli_addr);
 
-            // This accept() function will write the connecting client's address info
-            // into the the address structure and the size of that structure is clilen.
+            /* This accept() function will write the connecting client's address info 
+             *into the the address structure and the size of that structure is clilen.
+             */
             newsocketFd = accept(serverSocketFd, (struct sockaddr *)&cli_addr, &clilen);
             if (newsocketFd < 0)
             {
@@ -140,14 +141,14 @@ void Server::handleServer()
                    inet_ntoa(cli_addr.sin_addr),
                    ntohs(cli_addr.sin_port));
 
-            // Send a welcome message
+            /* Send a welcome message */
             sendMessage(newsocketFd, "Connection to server succeeded");
 
-            // Update number of active clients
+            /* Update number of active clients */
             activeNetworkClients++;
         }
 
-        // Check for commands from commands file if running in headless mode
+        /* Check for commands from commands file if running in headless mode */
         if (headlessMode)
         {
             jsonCommand = commandClient->handlePoll();
@@ -158,14 +159,29 @@ void Server::handleServer()
             }
         }
 
-        // Receiving and sending messages from/to clients
+        /* Receiving messages to clients */
         for (int i = 0; i < activeNetworkClients; i++)
         {
-            bzero(buffer, 512);
-            command = networkClients[i]->handlePoll(buffer);
+            command = networkClients[i]->handlePoll();
             if (!command.empty())
             {
                 handleClientCommand(command, "Client");
+            }
+        }
+
+        /* Checks if it is the time for any delayed command to be fired */
+        if (!delayedCommands.empty()) {
+            auto currentClockTime = std::chrono::system_clock::now();
+            std::time_t currentTime = std::chrono::system_clock::to_time_t(currentClockTime);
+
+            for (int i = 0; i < delayedCommands.size(); i++)
+            {
+                if (delayedCommands[i].delayTill <= currentTime) {
+                    agentCommand(delayedCommands[i].command);
+                    delayedCommands.erase(delayedCommands.begin()+i);
+                } else{
+                    break;
+                }
             }
         }
     }
@@ -173,9 +189,26 @@ void Server::handleServer()
 
 void Server::execCommand(json command)
 {
-    //if (!command["delay"].is_null())
-    //    sleep(command["delay"]);
-    if ((command["functionality"].get<std::string>()).compare("perf"))
+    if (command.find("delay") != command.end() && command["delay"].get<int>() > 0) {
+        auto currentClockTime = std::chrono::system_clock::now();
+        std::time_t currentTime = std::chrono::system_clock::to_time_t(currentClockTime);
+        std::time_t delay_till = currentTime + command["delay"].get<int>();
+
+        delayed_command_t delayedCommand;
+        delayedCommand.command = command;
+        delayedCommand.delayTill = delay_till;
+        delayedCommands.push_back(delayedCommand);
+
+        sort(delayedCommands.begin(), delayedCommands.end(),
+            [](delayed_command_t a, delayed_command_t b) {
+                if (a.delayTill < b.delayTill) {
+                    return true;
+                } else {
+                    return false;
+                }
+        });
+    }
+    else if ((command["functionality"].get<std::string>()).compare("perf"))
     {
         agentCommand(command);
     }
@@ -208,12 +241,12 @@ void Server::sendMessage(const int socketFd, const string message)
     size_t length = message.size();
     const char *buffer = message.data();
 
-    while (total < length)
+    while (total < length) 
     {
         n = send(socketFd, buffer, strlen(buffer), 0);
-        if (n == -1)
+        if (n == -1) 
         {
-            error("ERROR sending message to clients failed");
+            error("ERROR sending message to clients failed"); 
         }
 
         total += n;
@@ -244,7 +277,7 @@ void Server::shutDownServer()
 {
     keepPolling = false;
 
-    // wait on perf processing thread to join so its data can be sent before server closing
+    /* wait on perf processing thread to join so its data can be sent before server closing */
     if (perfThread.joinable())
     {
         cout << "Waiting on perf data." << endl;
@@ -253,7 +286,7 @@ void Server::shutDownServer()
 
     handleMessagingClients("Server shutting down");
 
-    // close off commands, logs, and network client sockets
+    /* close off commands, logs, and network client sockets */
     loggingClient->closeFile();
 
     for (int i = 0; i < activeNetworkClients; i++)

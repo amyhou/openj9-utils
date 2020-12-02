@@ -23,13 +23,21 @@
 #ifndef SERVER_H_
 #define SERVER_H_
 
+#include <ctime>
 #include <thread>
 #include <poll.h>
+#include <vector>
 
 #include "serverClients.hpp"
 #include "json.hpp"
 
 using json = nlohmann::json;
+
+struct delayed_command_t
+{
+    std::time_t delayTill;
+    json command;
+};
 
 class Server
 {
@@ -46,6 +54,7 @@ private:
     CommandClient *commandClient;
     LoggingClient *loggingClient;
     std::thread perfThread;
+    std::vector<delayed_command_t> delayedCommands;
 
     /*
      * Function members

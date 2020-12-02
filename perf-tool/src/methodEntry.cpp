@@ -82,10 +82,7 @@ JNIEXPORT void JNICALL MethodEntry(jvmtiEnv *jvmtiEnv,
         err = jvmtiEnv->Deallocate((unsigned char*)generic_ptr);
         err = jvmtiEnv->Deallocate((unsigned char*)declaringClassName);
 
-
         std::string s = j.dump();
-        // printf("\n%s\n", s.c_str());
-        // printf("sample num: %i", mEntrySampleCount);
         sendToServer(s);
     }
     mEntrySampleCount++;

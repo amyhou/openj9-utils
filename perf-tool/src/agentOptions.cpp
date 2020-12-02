@@ -34,10 +34,13 @@
 #include "objectalloc.hpp"
 #include "exception.hpp"
 #include "methodEntry.hpp"
+#include "verboseLog.hpp"
 
 #include "json.hpp"
 
 using json = nlohmann::json;
+
+VerboseLogSubscriber *verboseLogSubscriber;
 
 void invalidCommand(std::string function, std::string command)
 {
@@ -201,6 +204,20 @@ void modifyMethodEntryEvents(std::string function, std::string command, int samp
     }
 }
 
+void modifyVerboseLogSubscriber(std::string command, int sampleRate)
+{
+    // enable stack trace
+    if (!command.compare("start"))
+    {
+        verboseLogSubscriber = new VerboseLogSubscriber(jvmti);
+        verboseLogSubscriber->setVerboseGCLogSampleRate(sampleRate);
+        verboseLogSubscriber->Subscribe();
+    } else if (!command.compare("stop"))
+    {
+        verboseLogSubscriber->Unsubscribe();
+    }
+}
+
 void modifyExceptionBackTrace(std::string function, std::string command)
 {
     // enable stack trace
@@ -289,6 +306,10 @@ void agentCommand(json jCommand)
         else if (!function.compare("exceptionEvents"))
         {
             modifyExceptionEvents(function, command, sampleRate);
+        }
+        else if (!function.compare("verboseLog"))
+        {
+            modifyVerboseLogSubscriber(command, sampleRate);
         }
         else
         {

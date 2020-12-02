@@ -179,9 +179,6 @@ JNIEXPORT void JNICALL Exception(jvmtiEnv *jvmtiEnv,
             jdata["backtrace"] = jMethods;
         }
     }
-
-    // err = jvmtiEnv->Deallocate((unsigned char*)fileName);
-    // err = jvmtiEnv->Deallocate((unsigned char*)methodName);
-    // err = jvmtiEnv->Deallocate((unsigned char*)lineTable);
+    
     sendToServer(jdata.dump());
 }

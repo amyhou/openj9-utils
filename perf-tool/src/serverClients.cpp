@@ -27,11 +27,13 @@
 
 using namespace std;
 
-string NetworkClient::handlePoll(char buffer[])
+string NetworkClient::handlePoll()
 {
-    int n = read(socketFd, buffer, 255);
-    string s = string(buffer);
-    s.pop_back();
+    int n;
+    char buffer[ServerConstants::BUFFER_SIZE];
+
+    bzero(buffer, ServerConstants::BUFFER_SIZE);
+    n = read(socketFd, buffer, ServerConstants::BUFFER_SIZE-1);
 
     if (n < 0)
     {
@@ -39,13 +41,16 @@ string NetworkClient::handlePoll(char buffer[])
     }
     else if (n > 0)
     {
+        string s(buffer);
+        s.pop_back();
+
         return s;
     }
 
     return "";
 }
 
-NetworkClient::NetworkClient(int fd)
+NetworkClient::NetworkClient(const int fd)
 {
     socketFd = fd;
 }
@@ -77,25 +82,26 @@ void LoggingClient::closeFile(void)
 {
     if (logFile.is_open())
     {
-        // Delete last comma to make a proper json array
+        /* Delete last comma to make a proper json array */
         long currentPos = logFile.tellp();
         logFile.seekp(currentPos - 2);
         logFile << '\n' << "]" << endl;
-
+        
         logFile.close();
     }
 }
 
-void LoggingClient::logData(const string message, const std::string recievedFrom)
+void LoggingClient::logData(const string message, const std::string receivedFrom)
 {
     if (logFile.is_open())
     {
         json log;
         auto currentClockTime = std::chrono::system_clock::now();
         std::time_t currentTime = std::chrono::system_clock::to_time_t(currentClockTime);
-
-        // If message was a proper json, log as such
-        // Otherwise log the string
+        
+        /* If message was a proper json, log as formatted json
+         * otherwise log the string as it is
+         */
         try
         {
             log["body"] = log.parse(message);
@@ -104,8 +110,8 @@ void LoggingClient::logData(const string message, const std::string recievedFrom
         {
             log["body"] = message;
         }
-
-        log["from"] = recievedFrom;
+        
+        log["from"] = receivedFrom;
         log["timestamp"] = currentTime;
         logFile << log.dump(2, ' ', true) << ',' << endl;
     }
