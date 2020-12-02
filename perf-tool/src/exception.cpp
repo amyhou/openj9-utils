@@ -33,7 +33,7 @@ using namespace std;
 using json = nlohmann::json;
 
 std::atomic<bool> backTraceEnabled {true};
-std::atomic<int> exceptionSampleCount {0};
+std::atomic<int> exceptionSampleCount {1};
 std::atomic<int> exceptionSampleRate {1};
 
 
@@ -83,15 +83,15 @@ JNIEXPORT void JNICALL Exception(jvmtiEnv *jvmtiEnv,
 
     /* Get method name */
     err = jvmtiEnv->GetMethodName(method, &methodName, NULL, NULL);
-    if (check_jvmti_error(jvmtiEnv, err, "Unable to retrieve Method Name.\n")) {
+    if (err == JVMTI_ERROR_NONE) {
         jdata["callingMethod"] = methodName;  // record calling method
     }
     err = jvmtiEnv->Deallocate((unsigned char*)methodName);
-    check_jvmti_error(jvmtiEnv, err, "Unable to deallocate methodName.\n");
+    check_jvmti_error(jvmtiEnv, err, "Unable to deallocate methodName");
 
     /* Get line number */
     err = jvmtiEnv->GetLineNumberTable(method, &lineCount, &lineTable);  // returns table of source line num entries
-    if (check_jvmti_error(jvmtiEnv, err, "Unable to retrieve Line Number Table.\n")) { // Find line
+    if (err == JVMTI_ERROR_NONE) { // Find line
         lineNumber = lineTable[0].line_number;  // initially set line number to first line number of lineTable
         for (int i = 1; i < lineCount; i++) {
             // iterates through lineTable until the location from where the calling method was called is reached
@@ -106,19 +106,18 @@ JNIEXPORT void JNICALL Exception(jvmtiEnv *jvmtiEnv,
         jdata["callingMethodLineNumber"] = lineNumber;  // record line number of calling method
     }
     err = jvmtiEnv->Deallocate((unsigned char*)lineTable);
-    check_jvmti_error(jvmtiEnv, err, "Unable to deallocate lineTable.\n");
+    check_jvmti_error(jvmtiEnv, err, "Unable to deallocate lineTable");
 
     /* Get jclass object of calling method*/
-    err = jvmtiEnv->GetMethodDeclaringClass(method, &klass);
-    if (check_jvmti_error(jvmtiEnv, err, "Unable to retrieve Method Declaring Class.\n")) {
+    if ((err = jvmtiEnv->GetMethodDeclaringClass(method, &klass)) == JVMTI_ERROR_NONE) {
         /* Get source file name */
         err = jvmtiEnv->GetSourceFileName(klass, &fileName);
-        if (check_jvmti_error(jvmtiEnv, err, "Unable to retrieve Source File Name.\n")) {
+        if (err == JVMTI_ERROR_NONE) {
             jdata["callingMethodSourceFile"] = fileName;
         }
     }
     err = jvmtiEnv->Deallocate((unsigned char*)fileName);
-    check_jvmti_error(jvmtiEnv, err, "Unable to deallocate fileName.\n");
+    check_jvmti_error(jvmtiEnv, err, "Unable to deallocate fileName");
 
     // Get information from stack
     if (backTraceEnabled) { // only run when backtrace is enabled
@@ -129,21 +128,21 @@ JNIEXPORT void JNICALL Exception(jvmtiEnv *jvmtiEnv,
 
             err = jvmtiEnv->GetStackTrace(thread, 0, EXCEPTION_STACK_TRACE_NUM_FRAMES,
                                         frames, &count);
-            if (check_jvmti_error(jvmtiEnv, err, "Unable to retrieve Stack Trace.\n") && count >= 1) {
+            if (err == JVMTI_ERROR_NONE && count >= 1) {
                 json jMethod;
                 for (int i = 0; i < count; i++) {
                     /* Get method name */
                     err = jvmtiEnv->GetMethodName(frames[i].method,
                                         &methodName, NULL, NULL);
-                    if (check_jvmti_error(jvmtiEnv, err, "Unable to retrieve Method Name.\n")) {
+                    if (err == JVMTI_ERROR_NONE) {
                         jMethod["methodName"] = methodName;
                     }
                     err = jvmtiEnv->Deallocate((unsigned char*)methodName);
-                    check_jvmti_error(jvmtiEnv, err, "Unable to deallocate methodName.\n");
+                    check_jvmti_error(jvmtiEnv, err, "Unable to deallocate methodName");
 
                     /* Get line number */
                     err = jvmtiEnv->GetLineNumberTable(frames[i].method, &lineCount, &lineTable);
-                    if (check_jvmti_error(jvmtiEnv, err, "Unable to retrieve Line Number Table.\n")) { // Find line
+                    if (err == JVMTI_ERROR_NONE) { // Find line
                         lineNumber = lineTable[0].line_number;
                         for (int j = 1; j < lineCount; j++) {
                             if (frames[i].location < lineTable[i].start_location) {
@@ -152,22 +151,22 @@ JNIEXPORT void JNICALL Exception(jvmtiEnv *jvmtiEnv,
                                 lineNumber = lineTable[i].line_number;
                             }
                         }
-                        jMethod["methodLineNumber"] = lineNumber;
+                        jMethod["lineNumber"] = lineNumber;
                     }
                     err = jvmtiEnv->Deallocate((unsigned char*)lineTable);
-                    check_jvmti_error(jvmtiEnv, err, "Unable to deallocate lineTable.\n");
+                    check_jvmti_error(jvmtiEnv, err, "Unable to deallocate lineTable");
 
-                    /* Get jclass object of calling method*/
-                    err = jvmtiEnv->GetMethodDeclaringClass(frames[i].method, &klass);
-                    if (check_jvmti_error(jvmtiEnv, err, "Unable to retrieve Method Declaring Class.\n"))
+                    /* Get jclass object of calling method */
+                    if ((err = jvmtiEnv->GetMethodDeclaringClass(frames[i].method, &klass))
+                            == JVMTI_ERROR_NONE)
                     {
                         /* Get file name */
                         err = jvmtiEnv->GetSourceFileName(klass, &fileName);
-                        if (check_jvmti_error(jvmtiEnv, err, "Unable to retrieve Source File Name.\n")) {
+                        if (err == JVMTI_ERROR_NONE) {
                             jMethod["fileName"] = fileName;
                         }
                         err = jvmtiEnv->Deallocate((unsigned char*)fileName);
-                        check_jvmti_error(jvmtiEnv, err, "Unable to deallocate fileName.\n");
+                        check_jvmti_error(jvmtiEnv, err, "Unable to deallocate fileName");
                     }
 
                     /* Add frame's json element to backtrace json element array */
@@ -179,11 +178,10 @@ JNIEXPORT void JNICALL Exception(jvmtiEnv *jvmtiEnv,
 
             jdata["backtrace"] = jMethods;
         }
-
-        exceptionSampleCount++;
     }
 
-    jdata["numExceptions"] = numExceptions;
-
+    // err = jvmtiEnv->Deallocate((unsigned char*)fileName);
+    // err = jvmtiEnv->Deallocate((unsigned char*)methodName);
+    // err = jvmtiEnv->Deallocate((unsigned char*)lineTable);
     sendToServer(jdata.dump());
 }
