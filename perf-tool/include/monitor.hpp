@@ -33,5 +33,4 @@ JNIEXPORT void JNICALL MonitorContendedEntered(jvmtiEnv *jvmtiEnv,
 void setMonitorStackTrace(bool val);
 void setMonitorSampleRate(int rate);
 
-
 #endif /* MONITOR_H_ */

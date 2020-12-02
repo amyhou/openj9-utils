@@ -206,6 +206,7 @@ void modifyMethodEntryEvents(std::string function, std::string command, int samp
 
 void modifyVerboseLogSubscriber(std::string command, int sampleRate)
 {
+    // enable stack trace
     if (!command.compare("start"))
     {
         verboseLogSubscriber = new VerboseLogSubscriber(jvmti);
