@@ -31,7 +31,8 @@ public:
 private:
     void openServerConnection(void);
     void handlePolling(void);
-    void sendMessage(const std::string command);
+    void sendMessage(const char message[]);
+    void receiveMessage(char buffer[]);
 };
 
 #endif /* CLIENT_H_ */

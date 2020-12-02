@@ -98,7 +98,6 @@ void Client::startClient()
 
 void Client::handlePolling()
 {
-    int n;
     char buffer[BUFFER_SIZE];
 
     while (keepPolling)
@@ -113,37 +112,48 @@ void Client::handlePolling()
         if (interactive_mode && pollFds[0].revents && POLLIN)
         {
             fgets(buffer, BUFFER_SIZE, stdin);
-
-            n = write(socketFd, buffer, strlen(buffer));
-            if (n < 0)
-            {
-                error("ERROR writing to stdin");
-            }
+            sendMessage(buffer);
         }
 
         if (pollFds[1].revents && POLLIN)
         {
             bzero(buffer, BUFFER_SIZE);
-
-            n = recv(socketFd, buffer, BUFFER_SIZE-1, MSG_DONTWAIT);
-            if (n < 0)
-            {
-                error("ERROR reading from socket");
-            }
-
-            if (n > 0)
-            {
-                printf("Recieved: %s\n", buffer);
-
-                if (string(buffer).substr(strlen(buffer) - 4, 4) == "done")
-                {
-                    keepPolling = false;
-                }
-            }
+            receiveMessage(buffer);
         }
     }
 
     closeClient();
+}
+
+void Client::sendMessage(const char message[])
+{
+    int n;
+    n = write(socketFd, message, strlen(message));
+    if (n < 0)
+    {
+        error("ERROR writing to socket");
+    }
+}
+
+void Client::receiveMessage(char buffer[])
+{
+    int n;
+
+    n = recv(socketFd, buffer, BUFFER_SIZE-1, MSG_DONTWAIT);
+    if (n < 0)
+    {
+        error("ERROR reading from socket");
+    }
+
+    if (n > 0)
+    {
+        printf("Received: %s\n", buffer);
+
+        if (string(buffer).substr(strlen(buffer) - 4, 4) == "done")
+        {
+            keepPolling = false;
+        }
+    }
 }
 
 void Client::closeClient()

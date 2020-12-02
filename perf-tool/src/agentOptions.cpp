@@ -40,6 +40,8 @@
 
 using json = nlohmann::json;
 
+VerboseLogSubscriber *verboseLogSubscriber;
+
 void invalidCommand(std::string function, std::string command)
 {
     printf("Invalid command with parameters: {functionality: %s, command: %s}\n", function.c_str(), command.c_str());

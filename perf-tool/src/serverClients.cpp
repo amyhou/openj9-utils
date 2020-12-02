@@ -29,7 +29,7 @@ using namespace std;
 
 string NetworkClient::handlePoll(char buffer[])
 {
-    int n = read(socketFd, buffer, 255);
+    int n = read(socketFd, buffer, strlen(buffer));
     string s = string(buffer);
     s.pop_back();
 
@@ -77,7 +77,7 @@ void LoggingClient::closeFile(void)
 {
     if (logFile.is_open())
     {
-        // Delete last comma to make a proper json array
+        /* Delete last comma to make a proper json array */
         long currentPos = logFile.tellp();
         logFile.seekp(currentPos - 2);
         logFile << '\n' << "]" << endl;
@@ -86,7 +86,7 @@ void LoggingClient::closeFile(void)
     }
 }
 
-void LoggingClient::logData(const string message, const std::string recievedFrom)
+void LoggingClient::logData(const string message, const std::string receivedFrom)
 {
     if (logFile.is_open())
     {
@@ -94,8 +94,9 @@ void LoggingClient::logData(const string message, const std::string recievedFrom
         auto currentClockTime = std::chrono::system_clock::now();
         std::time_t currentTime = std::chrono::system_clock::to_time_t(currentClockTime);
         
-        // If message was a proper json, log as such
-        // Otherwise log the string
+        /* If message was a proper json, log as formatted json
+         * otherwise log the string as it is
+         */
         try
         {
             log["body"] = log.parse(message);
@@ -105,7 +106,7 @@ void LoggingClient::logData(const string message, const std::string recievedFrom
             log["body"] = message;
         }
         
-        log["from"] = recievedFrom;
+        log["from"] = receivedFrom;
         log["timestamp"] = currentTime;
         logFile << log.dump(2, ' ', true) << ',' << endl;
     }

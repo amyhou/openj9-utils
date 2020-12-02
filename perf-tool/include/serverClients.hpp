@@ -108,7 +108,7 @@ public:
     LoggingClient(const std::string filename);
 
     void closeFile(void);
-    void logData(const std::string data, const std::string recievedFrom);
+    void logData(const std::string data, const std::string receivedFrom);
 };
 
 #endif
