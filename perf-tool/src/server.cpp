@@ -1,6 +1,8 @@
 #include "server.hpp"
 
+#include <algorithm>
 #include <arpa/inet.h>
+#include <bits/types/time_t.h>
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -157,9 +159,10 @@ void Server::handleServer()
                 if (delayedCommands[i].delayTill <= currentTime) {
                     agentCommand(delayedCommands[i].command);
                     delayedCommands.erase(delayedCommands.begin()+i);
+                } else{
+                    break;
                 }
             }
-            
         }
     }
 }
@@ -169,13 +172,21 @@ void Server::execCommand(json command)
     if (command.find("delay") != command.end() && command["delay"].get<int>() > 0) {
         auto currentClockTime = std::chrono::system_clock::now();
         std::time_t currentTime = std::chrono::system_clock::to_time_t(currentClockTime);
-        std::time_t delay_til = currentTime + command["delay"].get<int>();
+        std::time_t delay_till = currentTime + command["delay"].get<int>();
 
         delayed_command_t delayedCommand;
         delayedCommand.command = command;
-        delayedCommand.delayTill = delay_til;
-
+        delayedCommand.delayTill = delay_till;
         delayedCommands.push_back(delayedCommand);
+
+        sort(delayedCommands.begin(), delayedCommands.end(),
+            [](delayed_command_t a, delayed_command_t b) {
+                if (a.delayTill < b.delayTill) {
+                    return true;
+                } else {
+                    return false;
+                }
+        });
     }
     else if ((command["functionality"].get<std::string>()).compare("perf"))
     {
