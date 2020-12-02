@@ -38,6 +38,7 @@ public:
     static constexpr int BASE_POLLS = 1;
     static constexpr int POLL_INTERVALS = 250;
     static constexpr int COMMAND_INTERVALS = 500;
+    static constexpr int BUFFER_SIZE = 512;
 };
 
 class NetworkClient
@@ -56,11 +57,11 @@ private:
 protected:
 private:
 public:
-    NetworkClient(int fd);
+    NetworkClient(const int fd);
 
     int getSocketFd(void);
     void closeFd(void);
-    std::string handlePoll(char buffer[]);
+    std::string handlePoll();
 };
 
 class CommandClient

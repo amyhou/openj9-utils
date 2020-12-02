@@ -27,11 +27,13 @@
 
 using namespace std;
 
-string NetworkClient::handlePoll(char buffer[])
+string NetworkClient::handlePoll()
 {
-    int n = read(socketFd, buffer, strlen(buffer));
-    string s = string(buffer);
-    s.pop_back();
+    int n;
+    char buffer[ServerConstants::BUFFER_SIZE];
+
+    bzero(buffer, ServerConstants::BUFFER_SIZE);
+    n = read(socketFd, buffer, ServerConstants::BUFFER_SIZE-1);
 
     if (n < 0)
     {
@@ -39,13 +41,16 @@ string NetworkClient::handlePoll(char buffer[])
     }
     else if (n > 0)
     {
+        string s(buffer);
+        s.pop_back();
+
         return s;
     }
 
     return "";
 }
 
-NetworkClient::NetworkClient(int fd)
+NetworkClient::NetworkClient(const int fd)
 {
     socketFd = fd;
 }

@@ -65,7 +65,6 @@ Server::Server(int portNo, const string commandFileName, const string logFileNam
 void Server::handleServer()
 {
     socklen_t clilen;
-    char buffer[512];
     string message, command;
     struct sockaddr_in serv_addr, cli_addr;
     int n, newsocketFd;
@@ -115,8 +114,6 @@ void Server::handleServer()
             break;
         }
 
-        bzero(buffer, 512);
-
         if (poll(pollFds, activeNetworkClients + ServerConstants::BASE_POLLS, ServerConstants::POLL_INTERVALS) == -1)
         {
             error("ERROR on polling");
@@ -165,8 +162,7 @@ void Server::handleServer()
         /* Receiving messages to clients */
         for (int i = 0; i < activeNetworkClients; i++)
         {
-            bzero(buffer, 512);
-            command = networkClients[i]->handlePoll(buffer);
+            command = networkClients[i]->handlePoll();
             if (!command.empty())
             {
                 handleClientCommand(command, "Client");
